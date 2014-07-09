@@ -1,0 +1,732 @@
+<?php
+	/*
+	 * Plugin Name: Studiorum User Groups
+	 * Description: Allows you to create groups of users
+	 * Version:     0.1
+	 * Plugin URI:  #
+	 * Author:      UBC, CTLT, Richard Tape
+	 * Author URI:  http://ubc.ca/
+	 * Text Domain: studiorum-user-groups
+	 * License:     GPL v2 or later
+	 * Domain Path: languages
+	 *
+	 * studiorum-user-groups is free software: you can redistribute it and/or modify
+	 * it under the terms of the GNU General Public License as published by
+	 * the Free Software Foundation, either version 2 of the License, or
+	 * any later version.
+	 *
+	 * studiorum-user-groups is distributed in the hope that it will be useful,
+	 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+	 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+	 * GNU General Public License for more details.
+	 *
+	 * You should have received a copy of the GNU General Public License
+	 * along with studiorum-user-groups. If not, see <http://www.gnu.org/licenses/>.
+	 *
+	 * @package User Groups
+	 * @category Core
+	 * @author Richard Tape
+	 * @version 0.1.0
+	 */
+
+	if( !defined( 'ABSPATH' ) ){
+		die( '-1' );
+	}
+
+	if( !defined( 'STUDIORUM_USER_GROUPS_DIR' ) ){
+		define( 'STUDIORUM_USER_GROUPS_DIR', plugin_dir_path( __FILE__ ) );
+	}
+
+	if( !defined( 'STUDIORUM_USER_GROUPS_URL' ) ){
+		define( 'STUDIORUM_USER_GROUPS_URL', plugin_dir_url( __FILE__ ) );
+	}
+
+	class Studiorum_User_Groups
+	{
+
+		// The option name stored in the db
+		var $optionName = 'studiorum_user_groups';
+
+		// This site's users
+		var $thisSitesUsers = array();
+
+		var $editingGroup = false;
+
+		/**
+		 * Actions and filters
+		 *
+		 * @since 0.1
+		 *
+		 * @param null
+		 * @return null
+		 */
+
+		public function __construct()
+		{
+
+			if( !is_admin() ){
+				return;
+			}
+
+			if( !class_exists( 'WP_List_Table' ) ){
+				require_once( ABSPATH . 'wp-admin/includes/class-wp-list-table.php' );
+			}
+
+			// Load our necessary includes
+			add_action( 'after_setup_theme', array( $this, 'after_setup_theme__includes' ), 1 );
+
+			add_action( 'admin_menu', array( $this, 'admin_menu__registerUserGroupsAdminPage' ) );
+
+			add_action( 'admin_enqueue_scripts', array( $this, 'admin_enqueue_scripts__loadJS' ) );
+
+			// When the add user group form is submitted
+			add_action( 'studiorum_user_groups_add_new_group_submitted', array( $this, 'studiorum_user_groups_add_new_group_submitted__processNewGroupSubmission' ) );
+
+			// When a group needs to be edited
+			add_action( 'studiorum_user_groups_edit_group_submitted', array( $this, 'studiorum_user_groups_edit_group_submitted__editExistingGroup' ) );
+
+			// When a group has been edited
+			add_action( 'studiorum_user_groups_edited_group_submitted', array( $this, 'studiorum_user_groups_edited_group_submitted__processEditGroup' ) );
+
+		}/* __construct() */
+
+
+		/**
+		 * Load our includes
+		 *
+		 * @since 0.1
+		 *
+		 * @param null
+		 * @return null
+		 */
+
+		public function after_setup_theme__includes()
+		{
+
+			require_once( trailingslashit( STUDIORUM_USER_GROUPS_DIR ) . 'includes/admin/class-user-groups-list-table.php' );
+
+		}/* after_setup_theme__includes() */
+
+
+		/**
+		 * Enqueue our JS. Mainly for selectize initially. Soon to be cusotm JS to assign groups automatically
+		 *
+		 * @since 0.1
+		 *
+		 * @param null
+		 * @return null
+		 */
+
+		public function admin_enqueue_scripts__loadJS( $hook )
+		{
+
+			if( $hook != 'users_page_studiorum-user-groups' ){
+				return;
+			}
+
+			wp_enqueue_script( 'selectize', trailingslashit( STUDIORUM_USER_GROUPS_URL ) . 'includes/admin/assets/js/selectize.js', array( 'jquery' ) );
+			wp_enqueue_script( 'selectize-loader', trailingslashit( STUDIORUM_USER_GROUPS_URL ) . 'includes/admin/assets/js/selectize-loader.js', array( 'jquery', 'selectize' ) );
+			
+			wp_enqueue_style( 'selectize', trailingslashit( STUDIORUM_USER_GROUPS_URL ) . 'includes/admin/assets/css/selectize.css' );
+			wp_enqueue_style( 'selectize-custom', trailingslashit( STUDIORUM_USER_GROUPS_URL ) . 'includes/admin/assets/css/selectize.custom.css' );
+
+			// We need to pass some variables to our JS
+			$localizationData = array();
+
+			$usableUsers = $this->getUserDataForJS();
+
+			$localizationData['userData'] = $usableUsers;
+
+			// If we're editing, we should pass the group's users to the JS
+			if( $this->editingGroup || ( isset( $_GET['action'] ) && $_GET['action'] == 'edit-user-group' ) ){
+
+				// Which group are we editing
+				$editingGroup = isset( $_REQUEST['user-group'] ) ? sanitize_title_with_dashes( $_REQUEST['user-group'] ) : sanitize_title_with_dashes( $_GET['user-group'] );
+
+				$userIDs = $this->processEditData( $editingGroup, 'group-users' );
+
+				$editingUsers = $this->getUserDataForJSFromUserIDs( $userIDs );
+
+				$localizationData['editingUsers'] = $editingUsers;
+
+			}
+
+			wp_localize_script( 'selectize-loader', 'sugData', $localizationData );
+
+		}/* admin_enqueue_scripts__loadJS() */
+
+
+		/**
+		 * Get this site's users and convert the data into something useful for the JS
+		 *
+		 * @since 0.1
+		 *
+		 * @param null
+		 * @return null
+		 */
+		private function getUserDataForJS()
+		{
+
+			$thisSitesUsers = $this->getThisSitesUsers();
+
+			// Now we have a big old array of user objects, let's turn that into something useful
+			// We just want user name, nicename and email
+			if( !$thisSitesUsers || !is_array( $thisSitesUsers ) || empty( $thisSitesUsers ) ){
+				return false;
+			}
+
+			// Start fresh
+			$usableData = $this->getUserDataForJSFromUserObjects( $thisSitesUsers );
+
+			return $usableData;
+
+		}/* getUserDataForJS() */
+
+
+		/**
+		 * Get user data based on an array of user objects for JS
+		 *
+		 * @since 0.1
+		 *
+		 * @param string $param description
+		 * @return string|int returnDescription
+		 */
+
+		private function getUserDataForJSFromUserObjects( $userObjects = false )
+		{
+
+			if( !$userObjects ){
+				return false;
+			}
+
+			$usableData = array();
+
+			foreach( $userObjects as $key => $userObject )
+			{
+
+				$userLogin 		= $userObject->user_login;
+				$userNiceName 	= $userObject->user_nicename;
+				$userEmail 		= $userObject->user_email;
+				$userID 		= $userObject->ID;
+
+				$usableData[] = array( 'userID' => $userID, 'login' => $userLogin, 'nice_name' => $userNiceName, 'email' => $userEmail );
+
+			}
+
+			return $usableData;
+
+		}/* getUserDataForJSFromUserObjects() */
+
+
+		/**
+		 * Get usable data for JS from an array of user IDs
+		 *
+		 * @since 0.1
+		 *
+		 * @param string $param description
+		 * @return string|int returnDescription
+		 */
+		private function getUserDataForJSFromUserIDs( $userIDs = false )
+		{
+
+			if( !$userIDs ){
+				return false;
+			}
+
+			$userObjects = array();
+
+			foreach( $userIDs as $key => $userID )
+			{
+
+				$userObject = get_user_by( 'id', $userID );
+
+				$userObjects[] = $userObject;
+
+			}
+
+			$usableData = $this->getUserDataForJSFromUserObjects( $userObjects );
+
+			return $usableData;
+
+		}/* getUserDataForJSFromUserIDs() */
+
+
+		/**
+		 * Get an array of user objects for this site
+		 *
+		 * @since 0.1
+		 *
+		 * @param string $param description
+		 * @return string|int returnDescription
+		 */
+
+		public function getThisSitesUsers()
+		{
+
+			if( isset( $this->thisSitesUsers ) && is_array( $this->thisSitesUsers ) && !empty( $this->thisSitesUsers ) )
+			{
+				$thisSitesUsers = $this->thisSitesUsers;
+			}
+			else
+			{
+
+				$roleToFetch = apply_filters( 'studiorum_user_groups_fetch_users_role', 'studiorum_student' );
+		
+				$thisSitesUsers = $this->getUsersOfRole( $roleToFetch );
+
+				$this->thisSitesUsers = $thisSitesUsers;
+
+			}
+
+			return $thisSitesUsers;
+
+		}/* getThisSitesUsers() */
+
+
+		/**
+		 * Regitser the user groups admin page
+		 *
+		 * @since 0.1
+		 *
+		 * @param null
+		 * @return null
+		 */
+
+		public function admin_menu__registerUserGroupsAdminPage()
+		{
+
+			$userGroupsPage = add_submenu_page( 
+				'users.php', 
+				'User Groups', 
+				'USer Groups', 
+				'manage_options', 
+				'studiorum-user-groups', 
+				array( $this, 'add_submenu_page__userGroupMarkup' )
+			);
+
+		}/* admin_menu__registerUserGroupsAdminPage() */
+
+
+		/**
+		 * Markup for the user groups page
+		 *
+		 * @since 0.1
+		 *
+		 * @param null
+		 * @return null
+		 */
+
+		public function add_submenu_page__userGroupMarkup()
+		{
+
+			echo '<div class="wrap"><div id="icon-tools" class="icon32"></div>';
+				echo '<h2>' . __( 'User Groups', 'studiorum-user-groups' ) . '</h2>';
+			echo '</div>';
+
+			echo '<div id="col-container">';
+
+				echo '<div id="col-right">';
+
+					echo '<div class="col-wrap">';
+
+						$this->_listTableMarkup();
+
+					echo '</div>'; // .col-wrap
+
+				echo '</div>'; // #col-right
+
+
+				echo '<div id="col-left">';
+
+					echo '<div class="col-wrap">';
+
+						$this->_addNewGroupMarkup();
+
+					echo '</div>'; // .col-wrap
+
+				echo '</div>'; // #col-left
+
+			echo '</div>'; // #col-container
+
+		}/* add_submenu_page__userGroupMarkup() */
+
+
+		/**
+		 * Method which outputs the main list table for the user groups
+		 *
+		 * @since 0.1
+		 *
+		 * @param null
+		 * @return null
+		 */
+
+		private function _listTableMarkup()
+		{
+
+			// Create an instance of our package class...
+			$userGroupListTable = new User_Groups_List_Table();
+
+			// Fetch, prepare, sort, and filter our data...
+			$userGroupListTable->prepare_items();
+
+			$value = ( isset( $_REQUEST['page'] ) ) ? $_REQUEST['page'] : '';
+
+			echo '<form id="user-groups-filter" method="get">';
+
+				echo '<input type="hidden" name="page" value="' . $value . '" />';
+
+				$userGroupListTable->display();
+
+			echo '</form>';
+
+		}/* _listTableMarkup() */
+
+
+		/**
+		 * Markup which outputs the new group fields
+		 *
+		 * @since 0.1
+		 *
+		 * @param null
+		 * @return null
+		 */
+
+		private function _addNewGroupMarkup()
+		{
+
+			global $current_screen;
+
+			if( isset( $_REQUEST['action'] ) && $_REQUEST['action'] == 'add-user-group' ){
+				do_action( 'studiorum_user_groups_add_new_group_submitted' );
+			}
+
+			if( isset( $_REQUEST['action'] ) && $_REQUEST['action'] == 'edit-user-group' ){
+				do_action( 'studiorum_user_groups_edit_group_submitted' );
+			}
+
+			if( isset( $_REQUEST['action'] ) && $_REQUEST['action'] == 'edited-user-group' ){
+				do_action( 'studiorum_user_groups_edited_group_submitted' );
+			}
+
+			// Preload some values, but if we're editing, we grab them
+			$titleValue = '';
+			$userGroupValue = '';
+
+			$submitButtonText = __( 'Add User Group', 'studiorum-user-groups' );
+
+			$formAction = 'add-user-group';
+
+			if( $this->editingGroup ){
+
+				// Which group are we editing
+				$editingGroup = isset( $_REQUEST['user-group'] ) ? sanitize_title_with_dashes( $_REQUEST['user-group'] ) : false;
+
+				$titleValue 	= $this->processEditData( $editingGroup, 'group-title' );
+				$userGroupValue = $this->processEditData( $editingGroup, 'group-users' );
+
+				$formAction = 'edited-user-group';
+
+				$submitButtonText = __( 'Edit User Group', 'studiorum-user-groups' );
+
+			}
+
+			?>
+
+			<div class="form-wrap">
+
+				<h3><?php __( 'Add New Group', 'studiorum-user-groups' ); ?></h3>
+
+				<form id="add-user-group" method="post" action="<?php  ?>" class="validate">
+
+					<input type="hidden" name="action" value="<?php echo $formAction; ?>" />
+					<input type="hidden" name="screen" value="<?php echo esc_attr( $current_screen->id ); ?>" />
+					<?php wp_nonce_field( 'add-user-group', '_wpnonce_add-user-group' ); ?>
+
+					<?php do_action( 'studiorum_user_groups_add_new_group_form_start' ); ?>
+
+					<div class="form-field form-required">
+						<label for="group-title"><?php _ex( 'Title', 'User Group Title' ); ?></label>
+						<input name="group-title" id="group-title" type="text" value="<?php echo $titleValue; ?>" size="40" aria-required="true" />
+						<p><?php _e( 'A recognizable title.', 'studiorum-user-groups' ); ?></p>
+					</div>
+
+					<div class="form-field form-required">
+						<label for="group-users"><?php _ex( 'Users', 'Users List Title' ); ?></label>
+						<input name="group-users" id="group-users" type="text" value="<?php echo implode( ',', $userGroupValue ); ?>" size="40" aria-required="true" />
+						<p><?php _e( 'Select the users you want in this group.', 'studiorum-user-groups' ); ?></p>
+					</div>
+
+					<?php do_action( 'studiorum_user_groups_add_new_group_form_end' ); ?>
+
+					<?php submit_button( $submitButtonText ); ?>
+
+				</form>
+
+			</div>
+
+			<?php
+
+		}/* _addNewGroupMarkup() */
+
+
+		/**
+		 * If we're editing, we have this method to sanitize the request data and fetch the relevant info from the options
+		 *
+		 * @since 0.1
+		 *
+		 * @param string $editingGroup Which group we are editing
+		 * @param string $field which field we want
+		 * @return string The value of the field requested
+		 */
+
+		private function processEditData( $editingGroup = false, $field = false )
+		{
+
+			if( !$editingGroup || !$field ){
+				return false;
+			}
+
+			$data = get_option( $this->optionName, array() );
+
+			if( !array_key_exists( $editingGroup, $data ) ){
+				return false;
+			}
+
+			$return = false;
+
+			switch( $field )
+			{
+
+				case 'group-title':
+					
+					$return = $data[$editingGroup]['title'];
+					break;
+
+				case 'group-users':
+
+					$return = $data[$editingGroup]['users'];
+					break;
+				
+				default:
+					
+					$return = false;
+					break;
+
+			}
+
+			return $return;
+
+		}/* processEditData() */
+
+
+		private function getUsersOfRole( $role = 'subscriber' )
+		{
+
+			if( !$role ){
+				return new WP_Error( '1', 'getUsersOfRole() requires a $role argument' );
+			}
+
+			$args = array(
+				'role' => $role
+			);
+
+			$wp_user_search = new WP_User_Query( $args );
+
+			$users = $wp_user_search->get_results();
+
+			return $users;
+
+		}/* getUsersOfRole() */
+
+
+		/**
+		 * Handle a new group submission
+		 *
+		 * @since 0.1
+		 *
+		 * @param null
+		 * @return null
+		 */
+
+		public function studiorum_user_groups_add_new_group_submitted__processNewGroupSubmission()
+		{
+
+			// Grab the nonce and verify it
+			$nonce = ( isset( $_REQUEST['_wpnonce_add-user-group'] ) ) ? sanitize_text_field( $_REQUEST['_wpnonce_add-user-group'] ) : false;
+
+			if( !wp_verify_nonce( $nonce, 'add-user-group' ) ){
+				return false;
+			}
+
+			// grab the existing groups
+			$existingData = get_option( $this->optionName, array() );
+
+			$newDataToAdd = $this->validateFormData( 'new' );
+
+			// Let's go ahead and add the group
+			$this->addNewGroup( $newDataToAdd, $existingData );
+
+		}/* studiorum_user_groups_add_new_group_submitted__processNewGroupSubmission() */
+
+
+		/**
+		 * Helper method to validate submitted data for new and editing submissions
+		 *
+		 * @since 0.1
+		 *
+		 * @param string $param description
+		 * @return string|int returnDescription
+		 */
+
+		private function validateFormData( $action = 'new' )
+		{
+
+			// Grab and sanitize the title. We'll also create a slug which will be the key
+			$title = isset( $_REQUEST['group-title'] ) ? sanitize_text_field( $_REQUEST['group-title'] ) : false;
+
+			if( !$title ){
+				return new WP_Error( '1', __( 'Please provide a title', 'studiorum-user-groups' ) );
+			}
+
+			// Make the slug, use 'save' as the context so additional entities are converted to hyphens or stripped 
+			$slug = sanitize_title_with_dashes( $title, null, 'save' );
+
+			// grab the existing groups
+			$existingData = get_option( $this->optionName, array() );
+
+			// If the slug already exists, bail
+			if( $existingData && is_array( $existingData ) && !empty( $existingData ) )
+			{
+
+				if( $action == 'new' && array_key_exists( $slug, $existingData ) ){
+					return new WP_Error( '1', __( 'A group with this name already exists', 'studiorum-user-groups' ) );
+				}
+
+			}
+
+			// Grab and sanitize the users
+			$usersToAddToGroup = isset( $_REQUEST['group-users'] ) ? sanitize_text_field( $_REQUEST['group-users'] ) : false;
+
+			// Bail if there are no users
+			if( !$usersToAddToGroup ){
+				return new WP_Error( '1', __( 'Please select users to add to the group', 'studiorum-user-groups' ) );
+			}
+
+			// $usersToAddToGroup will be a comma-separated string of User IDs, let's convert that into an array
+			$usersToAddToGroup = explode( ',', $usersToAddToGroup );
+
+			$newDataToAdd = array(
+				'title' => $title,
+				'slug' => $slug,
+				'users' => $usersToAddToGroup
+			);
+
+			$newDataToAdd = apply_filters( 'studiorum_user_groups_add_new_group_new_data', $newDataToAdd );
+
+			return $newDataToAdd;
+
+		}/* validateFormData() */
+
+
+		/**
+		 * Declare we are editing an existing group
+		 *
+		 * @since 0.1
+		 *
+		 * @param string $param description
+		 * @return string|int returnDescription
+		 */
+
+		public function studiorum_user_groups_edit_group_submitted__editExistingGroup()
+		{
+
+			$this->editingGroup = true;
+
+		}/* studiorum_user_groups_edit_group_submitted__editExistingGroup() */
+
+
+		/**
+		 * Process editing a group
+		 *
+		 * @since 0.1
+		 *
+		 * @param string $param description
+		 * @return string|int returnDescription
+		 */
+
+		public function studiorum_user_groups_edited_group_submitted__processEditGroup()
+		{
+
+			// grab the existing groups
+			$existingData = get_option( $this->optionName, array() );
+
+			$newDataToAdd = $this->validateFormData( 'edit' );
+
+			// Let's go ahead and add the group
+			$this->addNewGroup( $newDataToAdd, $existingData );
+
+		}/* studiorum_user_groups_edited_group_submitted__processEditGroup() */
+
+
+		/**
+		 * Add a new group to the groups option
+		 *
+		 * @since 0.1
+		 *
+		 * @param array $newDataToAdd The new data which we wish to add
+		 * @param array $existingData The data already in the database
+		 * @return array $newData The full data set
+		 */
+
+		private function addNewGroup( $newDataToAdd = false, $existingData = false )
+		{
+
+			// Well, we need some data to add
+			if( !$newDataToAdd ){
+				return false;
+			}
+
+			// If we aren't passed the original data, grab it
+			if( !$existingData ){
+				$existingData = get_option( $this->optionName );
+			}
+
+			$existingData[$newDataToAdd['slug']] = array( 'ID' => $newDataToAdd['slug'], 'title' => $newDataToAdd['title'], 'users' => $newDataToAdd['users'] );
+
+			return update_option( $this->optionName, $existingData );
+
+		}/* addNewGroup() */
+
+
+	}/* class Studiorum_User_Groups() */
+
+	// Instantiate ourselves
+	$Studiorum_User_Groups = new Studiorum_User_Groups();
+
+
+
+	/*
+
+		Option Name: studiorum_user_groups
+
+		array(
+
+			array(
+				'name'	=> 'Group Name',
+				'id' 	=> 'group-name',
+				'users' => array(
+					'1', '3', '5'
+				)
+			),
+
+			array(
+				'name'	=> 'Another Group',
+				'id' 	=> 'another-group',
+				'users' => array(
+					'1', '2', '4', '6'
+				)
+			)
+
+		)
+
+	*/
