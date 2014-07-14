@@ -50,7 +50,10 @@
 		// This site's users
 		var $thisSitesUsers = array();
 
+		// Are we editing a group?
 		var $editingGroup = false;
+
+		var $localizationData = array();
 
 		/**
 		 * Actions and filters
@@ -64,12 +67,15 @@
 		public function __construct()
 		{
 
-			if( !is_admin() ){
-				return;
-			}
-
 			if( !class_exists( 'WP_List_Table' ) ){
 				require_once( ABSPATH . 'wp-admin/includes/class-wp-list-table.php' );
+			}
+
+			if( !is_admin() ){
+				
+				// Studiorum Lecio gives us the ability to filter which users can see private posts other than the author, let's add a group of users
+				add_filter( 'studiorum_lectio_specific_users_who_can_see_private_submissions', array( $this, 'studiorum_lectio_specific_users_who_can_see_private_submissions__addUsersGroups' ), 10, 3 );
+				
 			}
 
 			// Load our necessary includes
@@ -104,6 +110,7 @@
 		{
 
 			require_once( trailingslashit( STUDIORUM_USER_GROUPS_DIR ) . 'includes/admin/class-user-groups-list-table.php' );
+			require_once( trailingslashit( STUDIORUM_USER_GROUPS_DIR ) . 'includes/class-studiorum-user-groups-utils.php' );
 
 		}/* after_setup_theme__includes() */
 
@@ -131,6 +138,7 @@
 			wp_enqueue_style( 'selectize-custom', trailingslashit( STUDIORUM_USER_GROUPS_URL ) . 'includes/admin/assets/css/selectize.custom.css' );
 
 			// We need to pass some variables to our JS
+			global $localizationData;
 			$localizationData = array();
 
 			$usableUsers = $this->getUserDataForJS();
@@ -138,7 +146,8 @@
 			$localizationData['userData'] = $usableUsers;
 
 			// If we're editing, we should pass the group's users to the JS
-			if( $this->editingGroup || ( isset( $_GET['action'] ) && $_GET['action'] == 'edit-user-group' ) ){
+			if( $this->editingGroup || ( isset( $_GET['action'] ) && sanitize_text_field( $_GET['action'] ) == 'edit-user-group' ) )
+			{
 
 				// Which group are we editing
 				$editingGroup = isset( $_REQUEST['user-group'] ) ? sanitize_title_with_dashes( $_REQUEST['user-group'] ) : sanitize_title_with_dashes( $_GET['user-group'] );
@@ -150,6 +159,8 @@
 				$localizationData['editingUsers'] = $editingUsers;
 
 			}
+
+			$this->localizationData = $localizationData;
 
 			wp_localize_script( 'selectize-loader', 'sugData', $localizationData );
 
@@ -298,7 +309,7 @@
 			$userGroupsPage = add_submenu_page( 
 				'users.php', 
 				'User Groups', 
-				'USer Groups', 
+				'User Groups', 
 				'manage_options', 
 				'studiorum-user-groups', 
 				array( $this, 'add_submenu_page__userGroupMarkup' )
@@ -416,7 +427,8 @@
 
 			$formAction = 'add-user-group';
 
-			if( $this->editingGroup ){
+			if( $this->editingGroup )
+			{
 
 				// Which group are we editing
 				$editingGroup = isset( $_REQUEST['user-group'] ) ? sanitize_title_with_dashes( $_REQUEST['user-group'] ) : false;
@@ -436,7 +448,9 @@
 
 				<h3><?php __( 'Add New Group', 'studiorum-user-groups' ); ?></h3>
 
-				<form id="add-user-group" method="post" action="<?php  ?>" class="validate">
+				<?php do_action( 'studiorum_user_groups_add_new_group_before_form' ); ?>
+
+				<form id="add-user-group" method="post" action="" class="validate">
 
 					<input type="hidden" name="action" value="<?php echo $formAction; ?>" />
 					<input type="hidden" name="screen" value="<?php echo esc_attr( $current_screen->id ); ?>" />
@@ -452,7 +466,7 @@
 
 					<div class="form-field form-required">
 						<label for="group-users"><?php _ex( 'Users', 'Users List Title' ); ?></label>
-						<input name="group-users" id="group-users" type="text" value="<?php echo implode( ',', $userGroupValue ); ?>" size="40" aria-required="true" />
+						<input name="group-users" id="group-users" type="text" value="<?php if( $userGroupValue != '' ){ echo implode( ',', $userGroupValue ); } ?>" size="40" aria-required="true" />
 						<p><?php _e( 'Select the users you want in this group.', 'studiorum-user-groups' ); ?></p>
 					</div>
 
@@ -460,9 +474,13 @@
 
 					<?php submit_button( $submitButtonText ); ?>
 
+					<?php do_action( 'studiorum_user_groups_add_new_group_form_after_submit' ); ?>
+
 				</form>
 
 			</div>
+
+			<?php do_action( 'studiorum_user_groups_add_new_group_after_form' ); ?>
 
 			<?php
 
@@ -669,7 +687,7 @@
 
 
 		/**
-		 * Add a new group to the groups option
+		 * Add a new group to the groups option. Also runs for edit as it simply overwrites the array key for that entry.
 		 *
 		 * @since 0.1
 		 *
@@ -678,7 +696,7 @@
 		 * @return array $newData The full data set
 		 */
 
-		private function addNewGroup( $newDataToAdd = false, $existingData = false )
+		public function addNewGroup( $newDataToAdd = false, $existingData = false )
 		{
 
 			// Well, we need some data to add
@@ -691,16 +709,77 @@
 				$existingData = get_option( $this->optionName );
 			}
 
+			do_action( 'studiorum_user_groups_before_add_new_group', $newDataToAdd );
+
 			$existingData[$newDataToAdd['slug']] = array( 'ID' => $newDataToAdd['slug'], 'title' => $newDataToAdd['title'], 'users' => $newDataToAdd['users'] );
 
-			return update_option( $this->optionName, $existingData );
+			$return = update_option( $this->optionName, $existingData );
+
+			do_action( 'studiorum_user_groups_after_add_new_group', $newDataToAdd, $return );
+
+			return $return;
 
 		}/* addNewGroup() */
+
+
+		/**
+		 * Adds the ability for a *group* of users to view the private posts submitted by a student
+		 *
+		 * @since 0.1
+		 *
+		 * @param (array) $specificUsersAbleToSeeThisPost - User IDs who can see the private post
+		 * @return (array) $specificUsersAbleToSeeThisPost - User IDs who can see the private post
+		 */
+
+		public function studiorum_lectio_specific_users_who_can_see_private_submissions__addUsersGroups( $specificUsersAbleToSeeThisPost, $currentUserID, $post )
+		{
+
+			// Should a user's group of users all be able to see the private submissions from each other? On by default
+			$groupSeesEachOthersSubmissions = apply_filters( 'studiorum_user_groups_groups_see_each_others_submissions', true );
+
+			// If we're not doing this, just bail
+			if( !$groupSeesEachOthersSubmissions ){
+				return $specificUsersAbleToSeeThisPost;
+			}
+
+			// Fetch this user's groups
+			$groups = Studiorum_User_Groups_Utils::getUsersGroups();
+			
+			// If we have some groups, then we have an array of arrays
+			if( !$groups || !is_array( $groups ) || empty( $groups ) ){
+				return $specificUsersAbleToSeeThisPost;
+			}
+
+			foreach( $groups as $slug => $groupDetails )
+			{
+				
+				$thisGroupsUsers = ( isset( $groupDetails['users'] ) ) ? $groupDetails['users'] : false;
+
+				if( !$thisGroupsUsers || !is_array( $thisGroupsUsers ) || empty( $thisGroupsUsers ) ){
+					continue;
+				}
+
+				// OK, so we now have this group's users as an array, add to $specificUsersAbleToSeeThisPost if not already there
+				foreach( $thisGroupsUsers as $key => $userID )
+				{
+					
+					if( !in_array( $userID, $specificUsersAbleToSeeThisPost ) ){
+						$specificUsersAbleToSeeThisPost[] = $userID;
+					}
+
+				}
+
+			}
+
+			return $specificUsersAbleToSeeThisPost;
+
+		}/* studiorum_lectio_specific_users_who_can_see_private_submissions__addUsersGroups() */
 
 
 	}/* class Studiorum_User_Groups() */
 
 	// Instantiate ourselves
+	global $Studiorum_User_Groups;
 	$Studiorum_User_Groups = new Studiorum_User_Groups();
 
 

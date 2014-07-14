@@ -37,12 +37,4 @@ jQuery( document ).ready( function( $ ){
 
 	});
 
-	// if( editingUsers ){
-
-	// 	var selectizeElement = userGroupsSelectize[0].selectize;
-
-	// 	selectizeElement.setValue( 'Test' );
-	// }
-
-
 } );
