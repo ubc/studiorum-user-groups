@@ -73,7 +73,7 @@
 
 			if( !is_admin() ){
 				
-				// Studiorum Lecio gives us the ability to filter which users can see private posts other than the author, let's add a group of users
+				// Studiorum Lectio gives us the ability to filter which users can see private posts other than the author, let's add a group of users
 				add_filter( 'studiorum_lectio_specific_users_who_can_see_private_submissions', array( $this, 'studiorum_lectio_specific_users_who_can_see_private_submissions__addUsersGroups' ), 10, 3 );
 				
 			}
@@ -109,6 +109,7 @@
 		public function after_setup_theme__includes()
 		{
 
+			require_once( trailingslashit( STUDIORUM_USER_GROUPS_DIR ) . 'includes/admin/class-user-groups-options.php' );
 			require_once( trailingslashit( STUDIORUM_USER_GROUPS_DIR ) . 'includes/admin/class-user-groups-list-table.php' );
 			require_once( trailingslashit( STUDIORUM_USER_GROUPS_DIR ) . 'includes/class-studiorum-user-groups-utils.php' );
 
@@ -735,10 +736,11 @@
 		{
 
 			// Should a user's group of users all be able to see the private submissions from each other? On by default
-			$groupSeesEachOthersSubmissions = apply_filters( 'studiorum_user_groups_groups_see_each_others_submissions', true );
-
+			$groupSeesEachOthersSubmissionsFromOption = get_studiorum_option( 'user_group_options', 'studiorum_user_groups_groups_see_each_others_submissions', 'true' );
+			$groupSeesEachOthersSubmissions = apply_filters( 'studiorum_user_groups_groups_see_each_others_submissions', $groupSeesEachOthersSubmissionsFromOption, $specificUsersAbleToSeeThisPost, $currentUserID, $post );
+			
 			// If we're not doing this, just bail
-			if( !$groupSeesEachOthersSubmissions ){
+			if( !$groupSeesEachOthersSubmissions || $groupSeesEachOthersSubmissions == 'false' ){
 				return $specificUsersAbleToSeeThisPost;
 			}
 
