@@ -18,8 +18,6 @@
 
 		var $userGroupData = array();
 
-		var $optionName = 'studiorum_user_groups';
-
 		/** ************************************************************************
 		 * REQUIRED. Set up a constructor that references the parent constructor. We 
 		 * use the parent reference to set some default configs.
@@ -35,7 +33,7 @@
 			parent::__construct( array(
 				'singular'  => 'group',     //singular name of the listed records
 				'plural'    => 'groups',    //plural name of the listed records
-				'ajax'      => false        //does this table support ajax?
+				'ajax'      => true        //does this table support ajax?
 			) );
 			
 		}
@@ -422,7 +420,7 @@
 			 * be able to use your precisely-queried data immediately.
 			 */
 
-			$data = get_option( $this->optionName, array() );
+			$data = get_option( Studiorum_User_Groups_Utils::$optionName, array() );
 					
 			
 			/**

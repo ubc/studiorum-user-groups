@@ -704,7 +704,7 @@
 		 * @return array $newData The full data set
 		 */
 
-		public function addNewGroup( $newDataToAdd = false, $existingData = false )
+		public function addNewGroup( $newDataToAdd = false, $existingData = false, $refresh = true )
 		{
 
 			// Well, we need some data to add
@@ -725,7 +725,15 @@
 
 			do_action( 'studiorum_user_groups_after_add_new_group', $newDataToAdd, $return );
 
-			return $return;
+			if( !$refresh ){
+				return $return;
+			}
+
+			?>
+			<script>
+				window.location.reload();
+			</script>
+			<?php
 
 		}/* addNewGroup() */
 
