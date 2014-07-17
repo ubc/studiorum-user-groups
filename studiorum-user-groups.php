@@ -94,6 +94,9 @@
 			// When a group has been edited
 			add_action( 'studiorum_user_groups_edited_group_submitted', array( $this, 'studiorum_user_groups_edited_group_submitted__processEditGroup' ) );
 
+			// Handle bulk delete
+			add_action( 'studiorum_user_groups_bulk_delete', array( $this, 'studiorum_user_groups_bulk_delete__handleBulkDelete' ) );
+
 		}/* __construct() */
 
 
@@ -159,6 +162,10 @@
 
 				$localizationData['editingUsers'] = $editingUsers;
 
+			}
+
+			if( isset( $_GET['action'] ) && sanitize_text_field( $_GET['action'] ) == 'delete' && isset( $_GET['action2'] ) && $_GET['action2'] == '-1' ){
+				do_action( 'studiorum_user_groups_bulk_delete' );
 			}
 
 			$this->localizationData = $localizationData;
@@ -724,6 +731,42 @@
 
 
 		/**
+		 * Helper method to get existing data
+		 *
+		 * @since 0.1
+		 *
+		 * @param null
+		 * @return array A set of existing data
+		 */
+
+		public function getExistingData()
+		{
+
+			$existingData = get_option( $this->optionName, array() );
+
+			return $existingData;
+
+		}/* getExistingData() */
+
+
+		/**
+		 * Helper method to set the option. Overwrites everything in the option with what is passed.
+		 *
+		 * @since 0.1
+		 *
+		 * @param string $param description
+		 * @return string|int returnDescription
+		 */
+
+		public function setData( $data )
+		{
+
+			update_option( $this->optionName, $data );
+
+		}/* setData() */
+
+
+		/**
 		 * Adds the ability for a *group* of users to view the private posts submitted by a student
 		 *
 		 * @since 0.1
@@ -776,6 +819,37 @@
 			return $specificUsersAbleToSeeThisPost;
 
 		}/* studiorum_lectio_specific_users_who_can_see_private_submissions__addUsersGroups() */
+
+
+		/**
+		 * Handle bulk delete
+		 *
+		 * @since 0.1
+		 *
+		 * @param null
+		 * @return null
+		 */
+
+		public function studiorum_user_groups_bulk_delete__handleBulkDelete()
+		{
+
+			// Grab an array of groups that we are to bulk delete - already urldecode'd
+			$groups = $_REQUEST['group'];
+
+			$sanitizedGroups = array();
+
+			foreach( $groups as $key => $groupTitle ){
+				$sanitizedGroups[] = sanitize_text_field( $groupTitle );
+			}
+
+			// Now we have an array of sanitized keys which we need to delete
+			foreach( $sanitizedGroups as $key => $title ){
+				User_Groups_List_Table::deleteGroup( $title );
+			}
+
+			file_put_contents( WP_CONTENT_DIR . '/debug.log', "\n" . '$_REQUEST: '. print_r( $_REQUEST, true ), FILE_APPEND );
+
+		}/* studiorum_user_groups_bulk_delete__handleBulkDelete() */
 
 
 	}/* class Studiorum_User_Groups() */

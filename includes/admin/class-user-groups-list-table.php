@@ -268,7 +268,6 @@
 
 			// OK, we have a group to delete and we have passed the nonce check
 			do_action( 'studiorum_user_groups_edit_group_submitted', $groupIDToEdit );
-			// $edited = $this->editGroup( $groupIDToEdit );
 
 		}/* processEditGroup() */
 
@@ -300,13 +299,6 @@
 		}/* processDeleteGroup() */
 
 
-		private function editGroup( $groupID )
-		{
-
-			wp_die( '<pre>' . print_r( $groupID, true ) . '</pre>' );
-
-		}/* editGroup() */
-
 		/**
 		 * Delete a group
 		 *
@@ -316,7 +308,7 @@
 		 * @return bool
 		 */
 
-		private function deleteGroup( $groupID = false )
+		public static function deleteGroup( $groupID = false )
 		{
 
 			if( !$groupID ){
@@ -324,13 +316,13 @@
 			}
 
 			// Fetch all the groups
-			$groups = get_option( $this->optionName );
+			$groups = get_option( Studiorum_User_Groups_Utils::$optionName );
 
 			if( isset( $groups[ $groupID ] ) ){
 
 				unset( $groups[$groupID] );
 
-				update_option( $this->optionName, $groups );
+				update_option( Studiorum_User_Groups_Utils::$optionName, $groups );
 
 				return true;
 

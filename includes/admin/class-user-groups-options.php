@@ -48,7 +48,7 @@
 		{
 
 			// Add the settings section
-			add_filter( 'studiorum_settings_settings_sections', array( $this, 'studiorum_settings_settings_sections__addUSerGroupSettingsSection' ) );
+			add_filter( 'studiorum_settings_settings_sections', array( $this, 'studiorum_settings_settings_sections__addUserGroupSettingsSection' ) );
 
 			// Add the fields to the new section
 			add_filter( 'studiorum_settings_settings_fields', array( $this, 'studiorum_settings_settings_fields__addUserGroupSettingsFields' ) );
@@ -65,7 +65,7 @@
 		 * @return array $settingsSections modified settings sections
 		 */
 
-		public function studiorum_settings_settings_sections__addUSerGroupSettingsSection( $settingsSections )
+		public function studiorum_settings_settings_sections__addUserGroupSettingsSection( $settingsSections )
 		{
 
 			if( !$settingsSections || !is_array( $settingsSections ) ){
@@ -82,7 +82,7 @@
 
 			return $settingsSections;
 
-		}/* studiorum_settings_settings_sections__addUSerGroupSettingsSection() */
+		}/* studiorum_settings_settings_sections__addUserGroupSettingsSection() */
 
 
 		/**
