@@ -842,8 +842,13 @@
 		{
 
 			// Grab an array of groups that we are to bulk delete - already urldecode'd
-			$groups = $_REQUEST['group'];
+			$groups = ( isset( $_REQUEST['group'] ) && is_array( $_REQUEST['group'] ) ) ? $_REQUEST['group'] : false;
 
+			if( !$groups ){
+				return;
+			}
+
+			// Sanitization of these groups
 			$sanitizedGroups = array();
 
 			foreach( $groups as $key => $groupTitle ){
@@ -855,8 +860,6 @@
 				User_Groups_List_Table::deleteGroup( $title );
 			}
 
-			file_put_contents( WP_CONTENT_DIR . '/debug.log', "\n" . '$_REQUEST: '. print_r( $_REQUEST, true ), FILE_APPEND );
-
 		}/* studiorum_user_groups_bulk_delete__handleBulkDelete() */
 
 
@@ -865,31 +868,3 @@
 	// Instantiate ourselves
 	global $Studiorum_User_Groups;
 	$Studiorum_User_Groups = new Studiorum_User_Groups();
-
-
-
-	/*
-
-		Option Name: studiorum_user_groups
-
-		array(
-
-			array(
-				'name'	=> 'Group Name',
-				'id' 	=> 'group-name',
-				'users' => array(
-					'1', '3', '5'
-				)
-			),
-
-			array(
-				'name'	=> 'Another Group',
-				'id' 	=> 'another-group',
-				'users' => array(
-					'1', '2', '4', '6'
-				)
-			)
-
-		)
-
-	*/
