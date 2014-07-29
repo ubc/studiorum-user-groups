@@ -77,7 +77,6 @@
 				'tab_slug'		=>	'lectio',
 				'order'			=> 	2,
 				'title'			=>	__( 'User Group Settings', 'studiorum-user-groups' ),
-				'description'	=>	__( 'As you have the User Group add-on enabled, you are now able to determine what happens to submissions for users in a group.', 'studiorum-user-groups' ),
 			);
 
 			return $settingsSections;
@@ -104,14 +103,18 @@
 			$settingsFields[] = array(	// Single Drop-down List
 				'field_id'	=>	'studiorum_user_groups_groups_see_each_others_submissions',
 				'section_id'	=>	'user_group_options',
-				'title'	=>	__( 'Group Submission Visibility?', 'studiorum-user-groups' ),
+				'title'	=>	__( 'Group Submission Visibility?', 'studiorum-user-groups' ) . '<span class="label-note">' . __( 'When a student submits a piece of work, should others in that student\'s group also be able to see it?' ) . '</span>',
 				'type'	=>	'select',
 				'default'	=>	'true',	// the index key of the label array below which yields 'Yellow'.
 				'label'	=>	array( 
 					'true'	=>	'True',		
 					'false'	=>	'False'
 				),
-				'description'	=>	__( 'When a student submits a piece of work, should others in that student\'s group also be able to see it?', 'studiorum-user-groups' ),
+				'attributes'	=>	array(
+					'select'	=>	array(
+						'style'	=>	"width: 285px;",
+					),
+				)
 			);
 
 			return $settingsFields;
