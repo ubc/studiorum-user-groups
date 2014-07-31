@@ -103,8 +103,10 @@
 			$settingsFields[] = array(	// Single Drop-down List
 				'field_id'	=>	'studiorum_user_groups_groups_see_each_others_submissions',
 				'section_id'	=>	'user_group_options',
-				'title'	=>	__( 'Group Submission Visibility?', 'studiorum-user-groups' ) . '<span class="label-note">' . __( 'When a student submits a piece of work, should others in that student\'s group also be able to see it?' ) . '</span>',
 				'type'	=>	'select',
+				'title'	=>	__( 'Group Submission Visibility?', 'studiorum-user-groups' ) . '<span class="label-note">' . __( 'When a student submits a piece of work, should others in that student\'s group also be able to see it?' ) . '</span>',
+				'help'			=>	__( 'As you have the group submissions add-on, you are able to determine the visibility of submissions within a group. i.e. if one student submits an assignment, should members of the group(s) that the submitter is in also be able to see that submission. This is a global setting, not on an assignment-by-assignment basis.', 'studiorum-lectio' ),
+				'help_aside'	=>	__( '', 'studiorum-user-groups' ),
 				'default'	=>	'true',	// the index key of the label array below which yields 'Yellow'.
 				'label'	=>	array( 
 					'true'	=>	'True',		
