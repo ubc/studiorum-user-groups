@@ -116,6 +116,9 @@
 			require_once( trailingslashit( STUDIORUM_USER_GROUPS_DIR ) . 'includes/admin/class-user-groups-list-table.php' );
 			require_once( trailingslashit( STUDIORUM_USER_GROUPS_DIR ) . 'includes/class-studiorum-user-groups-utils.php' );
 
+			// Integrations
+			require_once( trailingslashit( STUDIORUM_USER_GROUPS_DIR ) . 'includes/integrations/studiorum-lectio/class-integration-studiorum-lectio.php' );
+
 		}/* after_setup_theme__includes() */
 
 
@@ -803,6 +806,9 @@
 				return $specificUsersAbleToSeeThisPost;
 			}
 
+			// Get the post's author ID, so we can look for users in that author's groups
+			$authorID = $post->post_author;
+
 			foreach( $groups as $slug => $groupDetails )
 			{
 				
@@ -812,10 +818,15 @@
 					continue;
 				}
 
+				// Check if the author of the post is in the current user's groups
+				if( !in_array( $authorID, array_values( $thisGroupsUsers ) ) ){
+					continue;
+				}
+
 				// OK, so we now have this group's users as an array, add to $specificUsersAbleToSeeThisPost if not already there
 				foreach( $thisGroupsUsers as $key => $userID )
 				{
-					
+
 					if( !in_array( $userID, $specificUsersAbleToSeeThisPost ) ){
 						$specificUsersAbleToSeeThisPost[] = $userID;
 					}
