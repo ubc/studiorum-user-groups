@@ -101,10 +101,6 @@
 
 				$merged = array_merge( $allViewableSubmissions, $groupsSubmissions );
 
-				// echo '<pre>' . print_r( $groupsSubmissions, true ) . '</pre>';
-				// echo '<pre>' . print_r( $allViewableSubmissions, true ) . '</pre>';
-				// echo '<pre>' . print_r( $merged, true ) . '</pre>';
-
 				return $merged;
 
 			}/* studiorum_lectio_viewable_submissions__addStudentGroupSubmissions() */
