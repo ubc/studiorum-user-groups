@@ -97,6 +97,9 @@
 			// Handle bulk delete
 			add_action( 'studiorum_user_groups_bulk_delete', array( $this, 'studiorum_user_groups_bulk_delete__handleBulkDelete' ) );
 
+			// Register ourself as an addon
+			add_filter( 'studiorum_modules', array( $this, 'studiorum_modules__registerAsModule' ) );
+
 		}/* __construct() */
 
 
@@ -872,6 +875,40 @@
 			}
 
 		}/* studiorum_user_groups_bulk_delete__handleBulkDelete() */
+
+
+		/**
+		 * Register ourself as a studiorum addon, so it's available in the main studiorum page
+		 *
+		 * @since 0.1
+		 *
+		 * @param array $modules Currently registered modules
+		 * @return array $modules modified list of modules
+		 */
+
+		public function studiorum_modules__registerAsModule( $modules )
+		{
+
+			if( !$modules || !is_array( $modules ) ){
+				$modules = array();
+			}
+
+			$modules['studiorum-user-groups'] = array(
+				'id' 				=> 'user_groups',
+				'plugin_slug'		=> 'studiorum-user-groups',
+				'title' 			=> __( 'User Groups', 'studiorum' ),
+				'icon' 				=> 'groups', // dashicons-#
+				'excerpt' 			=> __( 'Group your users into specific sets and then allow those groups to work together.', 'studiorum' ),
+				'image' 			=> 'http://dummyimage.com/310/162',
+				'link' 				=> 'http://code.ubc.ca/studiorum/user-groups',
+				'content' 			=> __( '<p>Group your users into specific sets - users can be in more than one group or no group. With the User Groups Automatic module you are able to create random groups at the click of a button.</p>', 'studiorum' ),
+				'content_sidebar' 	=> 'http://dummyimage.com/300x150',
+				'date'				=> '2014-06-01'
+			);
+
+			return $modules;
+
+		}/* studiorum_modules__registerAsModule() */
 
 
 	}/* class Studiorum_User_Groups() */
