@@ -1,3 +1,5 @@
+var userGroupsSelectize = null;
+
 jQuery( document ).ready( function( $ ){
 
 	var userData = sugData.userData;
@@ -9,7 +11,7 @@ jQuery( document ).ready( function( $ ){
 
 	var usersGroupsField = $( '#group-users' );
 
-	var userGroupsSelectize = usersGroupsField.selectize({
+	userGroupsSelectize = usersGroupsField.selectize({
 
 		maxItems: null,
 		valueField: 'userID',

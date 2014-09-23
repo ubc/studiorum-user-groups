@@ -26,8 +26,6 @@
 		{
 
 			global $status, $page;
-
-
 					
 			//Set parent defaults
 			parent::__construct( array(
@@ -93,7 +91,7 @@
 
 			//Build row actions
 			$actions = array(
-				'edit'      => sprintf( '<a href="?page=%s&action=%s&user-group=%s&edit-nonce=%s">Edit</a>',$_REQUEST['page'],'edit-user-group',$item['ID'], $editNonce ),
+				'edit'      => sprintf( '<a data-edit="%s" href="?page=%s&action=%s&user-group=%s&edit-nonce=%s">Edit</a>',$item['ID'], $_REQUEST['page'],'edit-user-group',$item['ID'], $editNonce ),
 				'delete'    => sprintf( '<a href="?page=%s&action=%s&user-group=%s&delete-nonce=%s">Delete</a>',$_REQUEST['page'],'delete-user-group',$item['ID'], $deleteNonce ),
 			);
 			
@@ -120,9 +118,12 @@
 
 				$userObject = get_user_by( 'id', $userID );
 
+				// If the user has been deleted
+				if( !$userObject ){
+					continue;
+				}
+
 				$name = ( isset( $userObject->user_nicename ) && !empty( $userObject->user_nicename ) ) ? $userObject->user_nicename : $userObject->user_login;
-
-
 
 				$users[] = $name;
 
@@ -262,7 +263,7 @@
 				wp_die( '2', __( 'Must provide User Group to Edit', 'studiorum-user-groups' ) );
 			}
 
-			$groupIDToEdit = $_REQUEST['user-group'];
+			$groupIDToEdit = sanitize_text_field( $_REQUEST['user-group'] );
 
 			// OK, we have a group to delete and we have passed the nonce check
 			do_action( 'studiorum_user_groups_edit_group_submitted', $groupIDToEdit );
@@ -284,15 +285,10 @@
 				wp_die( '2', __( 'Must provide User Group to Edit', 'studiorum-user-groups' ) );
 			}
 
-			$groupIDToDelete = $_REQUEST['user-group'];
+			$groupIDToDelete = sanitize_text_field( $_REQUEST['user-group'] );
 
 			// OK, we have a group to delete and we have passed the nonce check
 			$deleted = $this->deleteGroup( $groupIDToDelete );
-
-			// if( $deleted ){
-			// 	wp_redirect( admin_url( 'users.php?page=studiorum-user-groups&action=deleted' ) );
-			// 	exit;
-			// }
 
 		}/* processDeleteGroup() */
 
@@ -313,6 +309,8 @@
 				return false;
 			}
 
+			do_action( 'studiorum-user-groups-before-group-delete', $groupID );
+
 			// Fetch all the groups
 			$groups = get_option( Studiorum_User_Groups_Utils::$optionName );
 
@@ -322,9 +320,13 @@
 
 				update_option( Studiorum_User_Groups_Utils::$optionName, $groups );
 
+				do_action( 'studiorum-user-groups-after-group-delete', $groupID );
+
 				return true;
 
 			}
+
+			do_action( 'studiorum-user-groups-after-group-delete-failure', $groupID );
 
 			return false;
 
@@ -410,16 +412,7 @@
 			$this->process_bulk_action();
 			
 			
-			/**
-			 * Instead of querying a database, we're going to fetch the example data
-			 * property we created for use in this plugin. This makes this example 
-			 * package slightly different than one you might build on your own. In 
-			 * this example, we'll be using array manipulation to sort and paginate 
-			 * our data. In a real-world implementation, you will probably want to 
-			 * use sort and pagination data to build a custom query instead, as you'll
-			 * be able to use your precisely-queried data immediately.
-			 */
-
+			// Data from our saved array
 			$data = get_option( Studiorum_User_Groups_Utils::$optionName, array() );
 					
 			

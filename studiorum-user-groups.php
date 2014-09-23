@@ -53,7 +53,11 @@
 		// Are we editing a group?
 		var $editingGroup = false;
 
+		// For JS Vars
 		var $localizationData = array();
+
+		// When we add a group, store the new data so we can access it in AJAX hooks
+		var $newGroupDataSanitized = false;
 
 		/**
 		 * Actions and filters
@@ -99,6 +103,12 @@
 
 			// Register ourself as an addon
 			add_filter( 'studiorum_modules', array( $this, 'studiorum_modules__registerAsModule' ) );
+
+			// Change message shown to authors for front-end submission author notice
+			add_filter( 'studiorum_lectio_author_note_above_submission', array( $this, 'studiorum_lectio_author_note_above_submission__addGroupToNotice' ) );
+
+			// After we 'add' a group, we run an action, which we hook into to update the list table
+			add_action( 'wp_ajax_studiorum_user_groups_add_group', array( $this, 'wp_ajax_studiorum_user_groups_add_group' ) );
 
 		}/* __construct() */
 
@@ -146,6 +156,9 @@
 			
 			wp_enqueue_style( 'selectize', trailingslashit( STUDIORUM_USER_GROUPS_URL ) . 'includes/admin/assets/css/selectize.css' );
 			wp_enqueue_style( 'selectize-custom', trailingslashit( STUDIORUM_USER_GROUPS_URL ) . 'includes/admin/assets/css/selectize.custom.css' );
+
+			// Also load our AJAX methods JS
+			wp_enqueue_script( 'studiorum-user-groups-ajax', trailingslashit( STUDIORUM_USER_GROUPS_URL ) . 'includes/admin/assets/js/admin-table-ajax.js', array( 'jquery', 'selectize-loader' ) );
 
 			// We need to pass some variables to our JS
 			global $localizationData;
@@ -248,7 +261,7 @@
 		 *
 		 * @since 0.1
 		 *
-		 * @param string $param description
+		 * @param array $userIDs an array of user IDs
 		 * @return string|int returnDescription
 		 */
 		private function getUserDataForJSFromUserIDs( $userIDs = false )
@@ -436,6 +449,7 @@
 			// Preload some values, but if we're editing, we grab them
 			$titleValue = '';
 			$userGroupValue = '';
+			$editingGroup = '';
 
 			$submitButtonText = __( 'Add User Group', 'studiorum-user-groups' );
 
@@ -468,6 +482,8 @@
 
 					<input type="hidden" name="action" value="<?php echo $formAction; ?>" />
 					<input type="hidden" name="screen" value="<?php echo esc_attr( $current_screen->id ); ?>" />
+					<input type="hidden" name="editGroupID" value="<?php echo esc_attr( $editingGroup ); ?>" />
+					
 					<?php wp_nonce_field( 'add-user-group', '_wpnonce_add-user-group' ); ?>
 
 					<?php do_action( 'studiorum_user_groups_add_new_group_form_start' ); ?>
@@ -585,6 +601,10 @@
 
 			// Grab the nonce and verify it
 			$nonce = ( isset( $_REQUEST['_wpnonce_add-user-group'] ) ) ? sanitize_text_field( $_REQUEST['_wpnonce_add-user-group'] ) : false;
+
+			if( !$nonce ){
+				$nonce = ( isset( $_REQUEST['nonce'] ) ) ? sanitize_text_field( $_REQUEST['nonce'] ) : false;
+			}
 
 			if( !wp_verify_nonce( $nonce, 'add-user-group' ) ){
 				return false;
@@ -725,6 +745,8 @@
 
 			do_action( 'studiorum_user_groups_before_add_new_group', $newDataToAdd );
 
+			$this->newGroupDataSanitized = $newDataToAdd;
+			file_put_contents( WP_CONTENT_DIR . '/debug.log', "\n" . '$this->newGroupDataSanitized: ' . print_r( $this->newGroupDataSanitized, true ), FILE_APPEND  );
 			$existingData[$newDataToAdd['slug']] = array( 'ID' => $newDataToAdd['slug'], 'title' => $newDataToAdd['title'], 'users' => $newDataToAdd['users'] );
 
 			$return = update_option( $this->optionName, $existingData );
@@ -734,12 +756,6 @@
 			if( !$refresh ){
 				return $return;
 			}
-
-			?>
-			<script>
-				window.location.reload();
-			</script>
-			<?php
 
 		}/* addNewGroup() */
 
@@ -909,6 +925,104 @@
 			return $modules;
 
 		}/* studiorum_modules__registerAsModule() */
+
+
+		/**
+		 * Update the message shown to authors of submissions to also add that users in their group
+		 * can see the notice 
+		 *
+		 * @author Richard Tape <@richardtape>
+		 * @since 1.0
+		 * @param string $message - the message shown to authors on the front-end
+		 * @return string $message - updated message with group
+		 */
+		
+		public function studiorum_lectio_author_note_above_submission__addGroupToNotice( $message )
+		{
+
+			return $message . __( ' Additionally, anyone in the same user group as you can see and comment on this submission.', 'studiorum-user-groups' );
+
+		}/* studiorum_lectio_author_note_above_submission__addGroupToNotice() */
+		
+
+		/**
+		 * 	AJAX handler for the add groups
+		 *
+		 * @author Richard Tape <@richardtape>
+		 * @since 1.0
+		 * @param null
+		 * @return null
+		 */
+		
+		public function wp_ajax_studiorum_user_groups_add_group()
+		{
+
+			// Nonce check
+			if( !wp_verify_nonce( $_REQUEST['nonce'], 'add-user-group' ) )
+			{
+
+				$result = array( 'type' => 'failure', 'reason' => 'nonce' );
+				$result = json_encode( $result );
+				echo $result;
+				die();
+
+			}
+
+			// OK nonce check passed
+			$result = array( 'type' => 'success' );
+
+			// Depending on what the form action is, we add or edit
+			
+			$formAction = sanitize_text_field( $_REQUEST['formAction'] );
+
+			switch( $formAction )
+			{
+
+				case 'edited-user-group':
+					
+					do_action( 'studiorum_user_groups_edited_group_submitted' );
+					break;
+				
+				case 'add-user-group':
+				default:
+					
+					// We have a function hooked into here to sanitize and then add if necessary
+					do_action( 'studiorum_user_groups_add_new_group_submitted' );
+
+					break;
+
+			}
+
+			// At this point $this->newGroupDataSanitized should be set
+			// we want t oconvert the user IDs into the nicenames
+			$userData = $this->getUserDataForJSFromUserIDs( $this->newGroupDataSanitized['users'] );
+
+			$result['groupTitle'] = $this->newGroupDataSanitized['title'];
+			$result['groupSlug'] = $this->newGroupDataSanitized['slug'];
+
+			$resultUsers = array();
+
+			foreach( $userData as $key => $userData ){
+				$resultUsers[] = $userData['login'];
+			}
+
+			$result['groupUsers'] = implode( ', ', $resultUsers );
+
+			if( !empty( $_SERVER['HTTP_X_REQUESTED_WITH'] ) && strtolower( $_SERVER['HTTP_X_REQUESTED_WITH'] ) == 'xmlhttprequest' )
+			{
+
+				$result = json_encode($result);
+				echo $result;
+
+			}
+			else
+			{
+				header( "Location: " . $_SERVER["HTTP_REFERER"] );
+			}
+
+			die();
+
+		}/* wp_ajax_studiorum_user_groups_add_group() */
 
 
 	}/* class Studiorum_User_Groups() */
