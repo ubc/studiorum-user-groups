@@ -450,6 +450,7 @@
 			$titleValue = '';
 			$userGroupValue = '';
 			$editingGroup = '';
+			$disabled = '';
 
 			$submitButtonText = __( 'Add User Group', 'studiorum-user-groups' );
 
@@ -466,7 +467,11 @@
 
 				$formAction = 'edited-user-group';
 
+				$disabled = 'disabled="disabled"';
+
 				$submitButtonText = __( 'Edit User Group', 'studiorum-user-groups' );
+
+
 
 			}
 
@@ -490,8 +495,8 @@
 
 					<div class="form-field form-required">
 						<label for="group-title"><?php _ex( 'Title', 'User Group Title' ); ?></label>
-						<input name="group-title" id="group-title" type="text" value="<?php echo $titleValue; ?>" size="40" aria-required="true" />
-						<p><?php _e( 'A recognizable title.', 'studiorum-user-groups' ); ?></p>
+						<input name="group-title" id="group-title" type="text" value="<?php echo $titleValue; ?>" size="40" aria-required="true" <?php echo $disabled; ?> />
+						<p><?php _e( 'A recognizable title. This is non-editable after creation.', 'studiorum-user-groups' ); ?></p>
 					</div>
 
 					<div class="form-field form-required">
