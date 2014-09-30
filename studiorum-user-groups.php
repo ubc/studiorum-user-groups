@@ -110,6 +110,12 @@
 			// After we 'add' a group, we run an action, which we hook into to update the list table
 			add_action( 'wp_ajax_studiorum_user_groups_add_group', array( $this, 'wp_ajax_studiorum_user_groups_add_group' ) );
 
+			// Add an option to the side comments section which allows only teachers and the author of a submission to see linear comments on a submission
+			add_filter( 'studiorum_settings_settings_fields', array( $this, 'studiorum_settings_settings_fields__addLinearCommentHideField' ), 11 );
+
+			// If the option is set, hide linear comments for all but submission author and staff
+			add_filter( 'studiorum_side_comments_hide_standard_comments', array( $this, 'studiorum_side_comments_hide_standard_comments__hideLinearCommentsIfAppropriate' ) );
+
 		}/* __construct() */
 
 
@@ -1029,6 +1035,84 @@
 
 		}/* wp_ajax_studiorum_user_groups_add_group() */
 
+
+		/**
+		 * Add a settings field to the 'Side Comments' section which allows only the author
+		 * of a submission and admins can see the linear Comments
+		 *
+		 * @author Richard Tape <@richardtape>
+		 * @since 1.0
+		 * @param array $settingsFields Currently registered settings fields for this section
+		 * @return array Modified settings fields array
+		 */
+		
+		public function studiorum_settings_settings_fields__addLinearCommentHideField( $settingsFields )
+		{
+
+			if( !$settingsFields || !is_array( $settingsFields ) ){
+				$settingsFields = array();
+			}
+
+			$settingsFields[] = array(	// Single Drop-down List
+				'field_id'	=>	'studiorum_side_comments_hide_standard_comments_for_all_but_author_and_admin',
+				'section_id'	=>	'side_comments_options',
+				'title'	=>	__( 'Hide standard comments on submissions for everyone apart from the author and admins?', 'studiorum-user-groups' ) . '<span class="label-note">' . __( 'On submissions, would you like only the author (the person who submitted the submission) and teachers/admins to be able to see the linear comments? If you have the "Hide standard comments" option set to true, this option is ignored.', 'studiorum-side-comments' ) . '</span>',
+				'type'	=>	'select',
+				'default'	=>	'false',
+				'label'	=>	array( 
+					'true'	=>	'True',
+					'false'	=>	'False'
+				),
+				'attributes'	=>	array(
+					'select'	=>	array(
+						'style'	=>	"width: 285px;",
+					),
+				)
+			);
+
+			return $settingsFields;
+
+		}/* studiorum_settings_settings_fields__addLinearCommentHideField() */
+		
+		/**
+		 * Determine if we are to hide linear comments - if the option is set and the currently
+		 * logged in user is not the author of the post or an admin, hide them
+		 *
+		 * @author Richard Tape <@richardtape>
+		 * @since 1.0
+		 * @param bool $hideCommentsFilter - whether to hide the comments or not
+		 * @return bool true if option is set AND current user is not author or admin, false otherwise
+		 */
+		
+		public function studiorum_side_comments_hide_standard_comments__hideLinearCommentsIfAppropriate( $hideCommentsFilter )
+		{
+
+			$hideCommentsOption = get_studiorum_option( 'side_comments_options', 'studiorum_side_comments_hide_standard_comments_for_all_but_author_and_admin' );
+
+			if( !$hideCommentsOption || $hideCommentsOption != 'true' ){
+				return false;
+			}
+
+			global $post;
+
+			if( !$post || !is_object( $post ) ){
+				return $hideCommentsFilter;
+			}
+			// Check we're on a submission
+			$postID = $post->ID;
+
+			if( get_post_type( $postID ) != Studiorum_Lectio_Utils::$postTypeSlug ){
+				return $hideCommentsFilter;
+			}
+
+			$userID = get_current_user_id();
+			$canSeeOneToOne = Studiorum_Lectio_Utils::userCanSeeOneToOne( $userID, $postID );
+
+			// If the user can see the one-to-one, we need to NOT hide (so .:. inverse)
+			return !$canSeeOneToOne;
+
+		}/* studiorum_side_comments_hide_standard_comments__hideLinearCommentsIfAppropriate() */
+		
 
 	}/* class Studiorum_User_Groups() */
 
