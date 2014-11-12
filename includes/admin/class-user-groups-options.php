@@ -76,7 +76,7 @@
 				'section_id'	=>	'user_group_options',
 				'tab_slug'		=>	'lectio',
 				'order'			=> 	2,
-				'title'			=>	__( 'User Group Settings', 'studiorum-user-groups' ),
+				'title'			=>	__( '<a href="' . admin_url( 'users.php?page=studiorum-user-groups' ) . '" title="">User Group</a> Settings', 'studiorum-user-groups' ),
 			);
 
 			return $settingsSections;
