@@ -2,7 +2,7 @@
 	/*
 	 * Plugin Name: Studiorum User Groups
 	 * Description: Allows you to create groups of users
-	 * Version:     0.1
+	 * Version:     0.1.1
 	 * Plugin URI:  #
 	 * Author:      UBC, CTLT, Richard Tape
 	 * Author URI:  http://ubc.ca/
