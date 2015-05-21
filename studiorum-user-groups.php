@@ -76,10 +76,10 @@
 			}
 
 			if( !is_admin() ){
-				
+
 				// Studiorum Lectio gives us the ability to filter which users can see private posts other than the author, let's add a group of users
 				add_filter( 'studiorum_lectio_specific_users_who_can_see_private_submissions', array( $this, 'studiorum_lectio_specific_users_who_can_see_private_submissions__addUsersGroups' ), 10, 3 );
-				
+
 			}
 
 			// Load our necessary includes
@@ -159,7 +159,7 @@
 
 			wp_enqueue_script( 'selectize', trailingslashit( STUDIORUM_USER_GROUPS_URL ) . 'includes/admin/assets/js/selectize.js', array( 'jquery' ) );
 			wp_enqueue_script( 'selectize-loader', trailingslashit( STUDIORUM_USER_GROUPS_URL ) . 'includes/admin/assets/js/selectize-loader.js', array( 'jquery', 'selectize' ) );
-			
+
 			wp_enqueue_style( 'selectize', trailingslashit( STUDIORUM_USER_GROUPS_URL ) . 'includes/admin/assets/css/selectize.css' );
 			wp_enqueue_style( 'selectize-custom', trailingslashit( STUDIORUM_USER_GROUPS_URL ) . 'includes/admin/assets/css/selectize.custom.css' );
 
@@ -315,7 +315,7 @@
 			{
 
 				$roleToFetch = apply_filters( 'studiorum_user_groups_fetch_users_role', 'studiorum_student' );
-		
+
 				$thisSitesUsers = $this->getUsersOfRole( $roleToFetch );
 
 				$this->thisSitesUsers = $thisSitesUsers;
@@ -339,12 +339,12 @@
 		public function admin_menu__registerUserGroupsAdminPage()
 		{
 
-			$userGroupsPage = add_submenu_page( 
-				'users.php', 
-				'User Groups', 
-				'User Groups', 
-				'manage_options', 
-				'studiorum-user-groups', 
+			$userGroupsPage = add_submenu_page(
+				'users.php',
+				'User Groups',
+				'User Groups',
+				'manage_options',
+				'studiorum-user-groups',
 				array( $this, 'add_submenu_page__userGroupMarkup' )
 			);
 
@@ -494,7 +494,7 @@
 					<input type="hidden" name="action" value="<?php echo $formAction; ?>" />
 					<input type="hidden" name="screen" value="<?php echo esc_attr( $current_screen->id ); ?>" />
 					<input type="hidden" name="editGroupID" value="<?php echo esc_attr( $editingGroup ); ?>" />
-					
+
 					<?php wp_nonce_field( 'add-user-group', '_wpnonce_add-user-group' ); ?>
 
 					<?php do_action( 'studiorum_user_groups_add_new_group_form_start' ); ?>
@@ -557,7 +557,7 @@
 			{
 
 				case 'group-title':
-					
+
 					$return = $data[$editingGroup]['title'];
 					break;
 
@@ -565,9 +565,9 @@
 
 					$return = $data[$editingGroup]['users'];
 					break;
-				
+
 				default:
-					
+
 					$return = false;
 					break;
 
@@ -651,7 +651,7 @@
 				return new WP_Error( '1', __( 'Please provide a title', 'studiorum-user-groups' ) );
 			}
 
-			// Make the slug, use 'save' as the context so additional entities are converted to hyphens or stripped 
+			// Make the slug, use 'save' as the context so additional entities are converted to hyphens or stripped
 			$slug = sanitize_title_with_dashes( $title, null, 'save' );
 
 			// grab the existing groups
@@ -822,7 +822,7 @@
 			// Should a user's group of users all be able to see the private submissions from each other? On by default
 			$groupSeesEachOthersSubmissionsFromOption = get_studiorum_option( 'user_group_options', 'studiorum_user_groups_groups_see_each_others_submissions', 'true' );
 			$groupSeesEachOthersSubmissions = apply_filters( 'studiorum_user_groups_groups_see_each_others_submissions', $groupSeesEachOthersSubmissionsFromOption, $specificUsersAbleToSeeThisPost, $currentUserID, $post );
-			
+
 			// If we're not doing this, just bail
 			if( !$groupSeesEachOthersSubmissions || $groupSeesEachOthersSubmissions == 'false' ){
 				return $specificUsersAbleToSeeThisPost;
@@ -830,7 +830,7 @@
 
 			// Fetch this user's groups
 			$groups = Studiorum_User_Groups_Utils::getUsersGroups();
-			
+
 			// If we have some groups, then we have an array of arrays
 			if( !$groups || !is_array( $groups ) || empty( $groups ) ){
 				return $specificUsersAbleToSeeThisPost;
@@ -841,7 +841,7 @@
 
 			foreach( $groups as $slug => $groupDetails )
 			{
-				
+
 				$thisGroupsUsers = ( isset( $groupDetails['users'] ) ) ? $groupDetails['users'] : false;
 
 				if( !$thisGroupsUsers || !is_array( $thisGroupsUsers ) || empty( $thisGroupsUsers ) ){
@@ -940,21 +940,21 @@
 
 		/**
 		 * Update the message shown to authors of submissions to also add that users in their group
-		 * can see the notice 
+		 * can see the notice
 		 *
 		 * @author Richard Tape <@richardtape>
 		 * @since 1.0
 		 * @param string $message - the message shown to authors on the front-end
 		 * @return string $message - updated message with group
 		 */
-		
+
 		public function studiorum_lectio_author_note_above_submission__addGroupToNotice( $message )
 		{
 
 			return $message . __( ' Additionally, anyone in the same user group as you can see and comment on this submission.', 'studiorum-user-groups' );
 
 		}/* studiorum_lectio_author_note_above_submission__addGroupToNotice() */
-		
+
 
 		/**
 		 * 	AJAX handler for the add groups
@@ -964,7 +964,7 @@
 		 * @param null
 		 * @return null
 		 */
-		
+
 		public function wp_ajax_studiorum_user_groups_add_group()
 		{
 
@@ -983,20 +983,20 @@
 			$result = array( 'type' => 'success' );
 
 			// Depending on what the form action is, we add or edit
-			
+
 			$formAction = sanitize_text_field( $_REQUEST['formAction'] );
 
 			switch( $formAction )
 			{
 
 				case 'edited-user-group':
-					
+
 					do_action( 'studiorum_user_groups_edited_group_submitted' );
 					break;
-				
+
 				case 'add-user-group':
 				default:
-					
+
 					// We have a function hooked into here to sanitize and then add if necessary
 					do_action( 'studiorum_user_groups_add_new_group_submitted' );
 
@@ -1045,7 +1045,7 @@
 		 * @param array $settingsFields Currently registered settings fields for this section
 		 * @return array Modified settings fields array
 		 */
-		
+
 		public function studiorum_settings_settings_fields__addLinearCommentHideField( $settingsFields )
 		{
 
@@ -1059,7 +1059,7 @@
 				'title'	=>	__( 'Hide standard comments on submissions for everyone apart from the author and admins?', 'studiorum-user-groups' ) . '<span class="label-note">' . __( 'On submissions, would you like only the author (the person who submitted the submission) and teachers/admins to be able to see the linear comments? If you have the "Hide standard comments" option set to true, this option is ignored.', 'studiorum-side-comments' ) . '</span>',
 				'type'	=>	'select',
 				'default'	=>	'false',
-				'label'	=>	array( 
+				'label'	=>	array(
 					'true'	=>	'True',
 					'false'	=>	'False'
 				),
@@ -1073,7 +1073,7 @@
 			return $settingsFields;
 
 		}/* studiorum_settings_settings_fields__addLinearCommentHideField() */
-		
+
 		/**
 		 * Determine if we are to hide linear comments - if the option is set and the currently
 		 * logged in user is not the author of the post or an admin, hide them
@@ -1083,7 +1083,7 @@
 		 * @param bool $hideCommentsFilter - whether to hide the comments or not
 		 * @return bool true if option is set AND current user is not author or admin, false otherwise
 		 */
-		
+
 		public function studiorum_side_comments_hide_standard_comments__hideLinearCommentsIfAppropriate( $hideCommentsFilter )
 		{
 
@@ -1112,7 +1112,7 @@
 			return !$canSeeOneToOne;
 
 		}/* studiorum_side_comments_hide_standard_comments__hideLinearCommentsIfAppropriate() */
-		
+
 
 	}/* class Studiorum_User_Groups() */
 
