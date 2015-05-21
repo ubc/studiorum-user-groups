@@ -757,7 +757,7 @@
 			do_action( 'studiorum_user_groups_before_add_new_group', $newDataToAdd );
 
 			$this->newGroupDataSanitized = $newDataToAdd;
-			file_put_contents( WP_CONTENT_DIR . '/debug.log', "\n" . '$this->newGroupDataSanitized: ' . print_r( $this->newGroupDataSanitized, true ), FILE_APPEND  );
+			// file_put_contents( WP_CONTENT_DIR . '/debug.log', "\n" . '$this->newGroupDataSanitized: ' . print_r( $this->newGroupDataSanitized, true ), FILE_APPEND  );
 			$existingData[$newDataToAdd['slug']] = array( 'ID' => $newDataToAdd['slug'], 'title' => $newDataToAdd['title'], 'users' => $newDataToAdd['users'] );
 
 			$return = update_option( $this->optionName, $existingData );
